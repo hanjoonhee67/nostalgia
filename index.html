@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>노스탤지어 : 집을 찾아서</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbit:wght@400&display=swap" rel="stylesheet">
+
+<style>
+  *{margin:0; padding:0; box-sizing:border-box;}
+
+  body{
+    width:100vw; height:100vh;
+    overflow:hidden; position:relative;
+    cursor:none;
+    font-family:"Orbit",sans-serif;
+  }
+
+  /* -----------------------------
+      비디오 배경
+  ----------------------------- */
+  #video-background{
+    position:fixed; top:0; left:0;
+    width:100%; height:100%;
+    object-fit:cover; z-index:1;
+    transition:opacity 1.5s ease-in-out;
+  }
+
+  /* -----------------------------
+      자막 위치 조정 영역
+  ----------------------------- */
+  #content-overlay{
+    position:fixed; top:0; left:0;
+    width:100%; height:100%;
+    display:flex; flex-direction:column;
+    justify-content:flex-end;   /* 아래쪽 자막 스타일 */
+    align-items:center;
+    padding-bottom:200px;       /* 자막 위치 */
+    z-index:2;
+    pointer-events:none;
+  }
+
+  /* -----------------------------
+      레트로 자막바 스타일
+  ----------------------------- */
+  #message{
+    color:#fff;
+    font-size:1.7rem;
+    line-height:1.6;
+    text-align:center;
+
+    background:rgba(0,0,0,0.55);
+    border:1.5px solid rgba(255,255,255,0.4);
+    border-radius:10px;
+
+    padding:18px 26px;
+    max-width:700px;
+
+    opacity:0;
+    transition:opacity .5s ease-in-out;
+
+    backdrop-filter:blur(3px);
+    text-shadow:0 0 3px rgba(0,0,0,0.6);
+
+    position:relative;
+  }
+
+  /* CRT 스캔라인 효과 */
+  #message::after{
+    content:"";
+    position:absolute;
+    top:0; left:0;
+    width:100%; height:100%;
+    pointer-events:none;
+    background:repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.05) 0px,
+      rgba(255,255,255,0.05) 1px,
+      transparent 2px
+    );
+    mix-blend-mode:soft-light;
+  }
+
+  /* -----------------------------
+      초반 타이틀 (흰 글씨)
+  ----------------------------- */
+  #title{
+    color:white;
+    font-size:3.8rem;
+    margin-bottom:40px;
+    opacity:0;
+    transition:opacity 1s ease-in-out;
+    text-shadow:1px 1px 10px rgba(0,0,0,0.3);
+    letter-spacing:0.1em;
+  }
+
+  #instruction{
+    position:fixed; bottom:30px; left:50%;
+    transform:translateX(-50%);
+    font-size:.9rem; color:white;
+    z-index:3; pointer-events:none;
+    transition:opacity .5s ease-in-out;
+  }
+
+  #vignette{
+    position:fixed; top:0; left:0;
+    width:100%; height:100%;
+    background:radial-gradient(ellipse at center,transparent 0%,rgba(0,0,0,.4) 100%);
+    z-index:3; pointer-events:none;
+  }
+
+  /* 커서 따라오는 집 이미지 컨테이너 */
+  #home-container{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    pointer-events:none;
+    z-index:1000; /* 모든 화면 위에 표시 */
+  }
+
+  /* 커서 따라오는 집 이미지 */
+  .home{
+    position:absolute;
+    width:100px;
+    pointer-events:none;
+    mix-blend-mode:screen;
+    opacity:0.8;
+    transition:transform 0.1s ease-out, opacity 0.5s ease-out;
+    will-change:transform;
+    z-index:1000;
+  }
+
+  /* -----------------------------
+      최종 블랙 + title.png 등장
+  ----------------------------- */
+  #black-fade{
+    position:fixed; top:0; left:0;
+    width:100%; height:100%;
+    background:black;
+    opacity:0;
+    z-index:5;
+    pointer-events:none;
+    transition:opacity 1.5s ease-in-out;
+  }
+
+  #final-title{
+    position:fixed;
+    top:50%; left:50%;
+    transform:translate(-50%,-50%) scale(1.2);
+    opacity:0;
+    width:700px; max-width:90%;
+    z-index:6;
+    transition:opacity 1.8s ease-out, transform 1.8s ease-out;
+  }
+  #final-title.show{
+    opacity:1;
+    transform:translate(-50%,-50%) scale(1);
+  }
+
+  /* -----------------------------
+      inhouse.png 화면
+  ----------------------------- */
+  #inhouse-screen{
+    position:fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    z-index:7;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 1.5s ease-in-out;
+  }
+  #inhouse-screen.show{
+    opacity:1;
+    pointer-events:auto;
+  }
+  #inhouse-screen img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+  }
+
+/* --------------------------
+   ? 버튼 스타일
+--------------------------- */
+#help-button {
+  position:fixed;
+  top:30px;
+  right:30px;
+  width:38px;
+  height:38px;
+
+  border:1.5px solid rgba(255,255,255,0.6);
+  border-radius:8px;
+  background:rgba(0,0,0,0.45);
+  backdrop-filter:blur(4px);
+
+  display:flex;
+  justify-content:center;
+  align-items:center;
+
+  color:white;
+  font-size:1.4rem;
+  font-weight:600;
+  cursor:pointer;
+  opacity:0;
+  z-index:10;
+
+  transition:opacity .8s ease, background .3s ease;
+}
+
+/* 호버 시 */
+#help-button:hover {
+  background:rgba(255,255,255,0.12);
+}
+
+
+/* --------------------------
+     팝업 스타일
+--------------------------- */
+#help-popup {
+  position:fixed;
+  top:30px;
+  right:80px; /* 버튼 옆에 위치 */
+  opacity:0;
+  pointer-events:none;
+  transform:translateY(-10px);
+  transition:opacity .4s ease, transform .4s ease;
+  z-index:9;
+}
+
+#help-popup .popup-inner {
+  background:rgba(0,0,0,0.7);
+  padding:18px 24px;
+  border-radius:10px;
+  width:260px;
+
+  border:1px solid rgba(255,255,255,0.5);
+  backdrop-filter:blur(5px);
+
+  color:white;
+  font-size:.9rem;
+  line-height:1.5;
+  box-shadow:0 0 20px rgba(0,0,0,0.3);
+}
+
+#help-popup h3 {
+  margin-bottom:8px;
+  font-size:1.05rem;
+  color:rgb(255,255,255);
+  letter-spacing:0.03em;
+}
+
+/* 마우스 올리면 팝업 활성화 */
+#help-button:hover + #help-popup {
+  opacity:1;
+  transform:translateY(0);
+  pointer-events:auto;
+}
+
+</style>
+</head>
+<body>
+
+  <video id="video-background" autoplay muted loop>
+    <source src="intro1.mp4" type="video/mp4">
+  </video>
+
+  <div id="content-overlay">
+    <div id="message"></div>
+    <div id="title">노스탤지어 : 집을 찾아서</div>
+  </div>
+
+  <div id="instruction">클릭해서 화면을 넘기세요.</div>
+  <div id="vignette"></div>
+
+  <div id="home-container"></div>
+
+  <div id="black-fade"></div>
+  <img id="final-title" src="title.png">
+  
+  <!-- inhouse.png 화면 -->
+  <div id="inhouse-screen">
+    <img src="inhouse.png" alt="inhouse">
+  </div>
+  
+  <!-- ? 도움말 버튼 -->
+<div id="help-button">?</div>
+
+<!-- 도움말 팝업 -->
+<div id="help-popup">
+  <div class="popup-inner">
+    <h3>사용 방법</h3>
+    <p>화면을 클릭해서<br>다음 장면으로 이동합니다.<br>
+       주인공을 따라<br>집으로 돌아가세요!</p>
+  </div>
+</div>
+
+
+<script>
+/* --------------------------------
+    메시지 + 비디오 타이핑 로직
+--------------------------------- */
+const messages=[
+  "너무 외로워...",
+  "나만 겉도는 것 같아...",
+  "모든 게 다 낯설어...",
+  "원래 내가 있던 곳으로 돌아가고 싶어!"
+];
+
+let currentMessageIndex=0;
+let isTransitioning=false;
+let typingTimeout=null;
+
+const messageEl=document.getElementById('message');
+const titleEl=document.getElementById('title');
+const videoEl=document.getElementById('video-background');
+const instructionEl=document.getElementById('instruction');
+const blackFade=document.getElementById('black-fade');
+const finalTitle=document.getElementById('final-title');
+const inhouseScreen=document.getElementById('inhouse-screen');
+
+/* 비디오 바꾸기 */
+function changeVideo(src){
+  videoEl.src=src;
+  videoEl.load();
+  videoEl.play();
+}
+
+/* 타이핑 효과 */
+function typeText(el,text,cb){
+  let i=0;
+  el.textContent="";
+  el.classList.add('show');
+
+  function type(){
+    if(i<text.length){
+      el.textContent+=text.charAt(i++);
+      typingTimeout=setTimeout(type,80);
+    } else if(cb){
+      cb();
+    }
+  }
+  type();
+}
+
+/* 메시지 출력 */
+function showMessage(i){
+  if(i>=messages.length){
+    setTimeout(()=>titleEl.style.opacity=1,500);
+    return;
+  }
+
+  isTransitioning=true;
+  if(typingTimeout)clearTimeout(typingTimeout);
+
+  messageEl.style.opacity=0;
+  messageEl.textContent='';
+
+  if(i===0)changeVideo('intro1.mp4');
+  else if(i===1)changeVideo('intro2.mp4');
+  else if(i===2 || i===3)changeVideo('intro3.mp4');
+
+  setTimeout(()=>{
+    messageEl.style.opacity=1;
+    typeText(messageEl,messages[i],()=>isTransitioning=false);
+  },500);
+}
+
+/* -------------------------------
+   마지막 클릭 → 블랙 + 타이틀 등장
+-------------------------------- */
+let isTitleScreenShown=false;
+
+function triggerFinalScene(){
+  instructionEl.style.opacity=0;
+  messageEl.style.opacity=0;
+  titleEl.style.opacity=0;
+
+  videoEl.style.opacity=0;
+  blackFade.style.opacity=1;
+
+  setTimeout(()=>{
+    finalTitle.classList.add('show');
+    isTitleScreenShown=true;
+  },1500);
+
+  /* 🔥 타이틀 등장 후 ? 버튼 표시 */
+  setTimeout(()=>{
+    document.getElementById('help-button').style.opacity = 1;
+  },2000);
+}
+
+/* 타이틀 화면에서 클릭 시 inhouse.png로 이동 */
+function showInhouseScreen(){
+  finalTitle.style.opacity=0;
+  blackFade.style.opacity=0;
+  setTimeout(()=>{
+    inhouseScreen.classList.add('show');
+  },500);
+}
+
+
+/* 클릭 이벤트 */
+document.body.addEventListener('click',(e)=>{
+  /* 도움말 버튼 클릭은 무시 */
+  if(e.target.closest('#help-button') || e.target.closest('#help-popup')){
+    return;
+  }
+
+  /* 타이틀 화면이 표시된 상태에서 클릭하면 inhouse.png로 이동 */
+  if(isTitleScreenShown){
+    showInhouseScreen();
+    isTitleScreenShown=false;
+    return;
+  }
+
+  if(isTransitioning)return;
+
+  if(currentMessageIndex===messages.length){
+    triggerFinalScene();
+    currentMessageIndex++;
+    return;
+  }
+
+  if(currentMessageIndex<messages.length){
+    showMessage(currentMessageIndex++);
+  }
+});
+
+/* 첫 로딩 */
+window.addEventListener('load',()=>{
+  setTimeout(()=>{
+    showMessage(0);
+    currentMessageIndex=1;
+  },500);
+});
+
+/* --------------------------------
+    커서 따라오는 집 이미지 효과
+--------------------------------- */
+const homeContainer=document.getElementById("home-container");
+const homeImgs=['home2.png','home.png'];
+let lastCreateTime=0;
+
+function createHomeImage(x,y){
+  const img=document.createElement('img');
+  img.src=homeImgs[Math.floor(Math.random()*homeImgs.length)];
+  img.className='home';
+  img.style.left=x+'px';
+  img.style.top=y+'px';
+
+  if(Math.random()>0.5){
+    img.style.width='80px';
+    img.style.opacity='0.6';
+    img.style.filter='blur(1.5px)';
+  }
+
+  homeContainer.appendChild(img);
+
+  setTimeout(()=>{
+    img.style.opacity=0;
+    setTimeout(()=>img.remove(),500);
+  },800);
+}
+
+document.addEventListener("mousemove",(e)=>{
+  const now=Date.now();
+  if(now-lastCreateTime>50){
+    createHomeImage(e.clientX,e.clientY);
+    lastCreateTime=now;
+  }
+});
+</script>
+</body>
+</html>
